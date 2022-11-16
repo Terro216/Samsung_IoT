@@ -20,9 +20,9 @@ struct BallPosition
   int y = 0;
   double aX = 0;
   double v0X = 0;
-  double t = 0;
   double aY = 0;
   double v0Y = 0;
+  double t = 0;
   const double g = 9.8;
   double distanceX = 0;
   double lastDistanceX = 0;
@@ -88,21 +88,23 @@ void changeball(double deltaMillis)
   ball.t = deltaMillis / 1000;
   ball.aX = ball.g * sin(roll * PI / 180);
   ball.aY = ball.g * sin(pitch * PI / 180);
+
   ball.v0X += ball.aX * ball.t;
-  ball.v0Y = ball.aY * ball.t;
+  ball.v0Y += ball.aY * ball.t;
   if (abs(roll) > 3)
   {
     double dX = ball.v0X * ball.t + (ball.aX * ball.t * ball.t / 2);
-    ball.distanceX = ball.distanceX + (dX);
-    Serial.print("dX: ");
-    Serial.print(dX);
-    Serial.print("\t\t");
-    Serial.print("ball.distanceX: ");
-    Serial.print(ball.distanceX);
-    Serial.print("\t\t");
-    Serial.print("ball.aX: ");
+    ball.distanceX = ball.distanceX + (dX / 10);
+
+    Serial.print(" v0X: ");
+    Serial.print(ball.v0X);
+    Serial.print(" aX: ");
     Serial.print(ball.aX);
-    Serial.print("\t\t");
+    Serial.print(" dX: ");
+    Serial.print(dX);
+    Serial.print(" distX: ");
+    Serial.print(ball.distanceX);
+    Serial.print(" \n");
 
     if (ball.distanceX > 0.07)
     {
@@ -111,19 +113,50 @@ void changeball(double deltaMillis)
     }
     else if (ball.distanceX < 0)
     {
-      ball.distanceX = 0;
-      ball.v0X = 0;
+      ball.distanceX -= ball.distanceX + (dX / 10);
+      if (ball.v0X < 0)
+        ball.v0X = 0;
+      else
+        ball.v0X = -ball.v0X * 0.8;
+      double dX = ball.v0X * ball.t + (ball.aX * ball.t * ball.t / 2);
+      ball.distanceX = ball.distanceX + (dX / 10);
     }
     ball.x = (int)(ball.distanceX / 0.01);
   }
   else
   {
-    ball.aX = 0;
     ball.v0X = 0;
+  }
+
+  if (abs(pitch) > 3)
+  {
+    double dY = ball.v0Y * ball.t + (ball.aY * ball.t * ball.t / 2);
+    ball.distanceY = ball.distanceY + (dY / 10);
+
+    if (ball.distanceY > 0.07)
+    {
+      ball.distanceY = 0.07;
+      ball.v0Y = 0;
+    }
+    else if (ball.distanceY < 0)
+    {
+      ball.distanceY -= ball.distanceY + (dY / 10);
+      if (ball.v0Y < 0)
+        ball.v0Y = 0;
+      else
+        ball.v0Y = -ball.v0Y * 0.8;
+      double dY = ball.v0Y * ball.t + (ball.aY * ball.t * ball.t / 2);
+      ball.distanceY = ball.distanceY + (dY / 10);
+    }
+    ball.y = (int)(ball.distanceY / 0.01);
+  }
+  else
+  {
+    ball.v0Y = 0;
   }
 }
 
-void getData()
+void getData(unsigned long time)
 {
   // Запоминаем текущее время
   unsigned long startMillis = millis();
@@ -132,32 +165,34 @@ void getData()
   // Считываем данные с гироскопа в радианах в секунду
   gyroscope.readRotationRadXYZ(gx, gy, gz);
   // Устанавливаем частоту фильтра
-  filter.setFrequency(sampleRate);
+  filter.setFrequency(1000 / time);
   // Обновляем входные данные в фильтр
   filter.update(gx, gy, gz, ax, ay, az);
 
   // Получаем из фильтра углы: yaw, pitch и roll
   yaw = filter.getYawDeg();
-  pitch = filter.getPitchDeg();
+  pitch = -filter.getPitchDeg();
   roll = filter.getRollDeg();
-  Serial.print("pitch: ");
-  Serial.print(pitch);
-  Serial.print("\t\t");
-  Serial.print("roll: ");
-  Serial.println(roll);
-  Serial.print("\t\t");
+  // Serial.print("pitch: ");
+  // Serial.print(pitch);
+  // Serial.print("\t\t");
+  // Serial.print("roll: ");
+  // Serial.println(roll);
+  // Serial.print("\t\t");
 
   // Вычисляем затраченное время на обработку данных
   unsigned long deltaMillis = millis() - startMillis;
   // Вычисляем частоту обработки фильтра
   sampleRate = 1000 / deltaMillis;
-
-  changeball(deltaMillis);
-  changeBitmap();
 }
 
+unsigned long prevTime = millis();
 void loop()
 {
-  getData();
+  unsigned long currTime = millis();
+  getData(currTime - prevTime);
+  changeball(currTime - prevTime);
+  prevTime = currTime;
+  changeBitmap();
   matrix.drawBitmap(bitmap);
 }
