@@ -10,7 +10,7 @@ Thread thread;
 int ledDelay = 1000;
 // bool tooMuch = false;
 
-void checkSensor() {
+void ledControl() {
   while (true) {
     myrele = !myrele;
     thread_sleep_for(ledDelay);
@@ -18,12 +18,10 @@ void checkSensor() {
 }
 
 int main() {
-  // ticker.attach(checkSensor, 1);
-  thread.start(callback(checkSensor));
+  // ticker.attach(ledControl, 1);
+  thread.start(callback(ledControl));
 
   while (true) {
-    // myled = !myled;
-
     sensor.read();
     int tempC = sensor.getCelsius();
     int hum = sensor.getHumidity();
